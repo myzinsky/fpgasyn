@@ -10,7 +10,8 @@ entity osc is
             enable 	: in  STD_LOGIC := '0';
             key    	: in  STD_LOGIC_VECTOR (7 downto 0)  := (others => '0');
             instrument 	: in  STD_LOGIC_VECTOR (7 downto 0)  := (others => '0');
-            output 	: out STD_LOGIC_VECTOR (11 downto 0) := (others => '0')
+            busy 	: out  STD_LOGIC := '0';
+            output 	: out STD_LOGIC_VECTOR (11 downto 0) := "100000000000"
     	);
 end osc;
 
@@ -41,8 +42,9 @@ architecture Behavioral of osc is
     signal tri_k	: integer range 0 to 335544  := 0;
     signal tri_m	: integer range 0 to 6710    := 147;    --- a
     signal tri_n	: integer range 0 to 2500000 := 113636; --- a
-    signal tri_y	: std_logic_vector(23 downto 0); 
+    signal tri_y	: std_logic_vector(23 downto 0) := "100000000000000000000000"; 
     signal tri_toggle   : std_logic := '0';
+    signal tri_enable   : std_logic := '0';
 
 --    -- Sine Signal
 --    signal sin_data	: std_logic_vector(47 downto 0) := "000000000000000010010011101001000000010101000000"; 
@@ -59,8 +61,12 @@ begin
 
     output <=  saw_y(23 downto 12) when instrument = X"01" else
                tri_y(23 downto 12) when instrument = X"02" else
---	       (sin_y-2047)        when instrument = X"03" else	       
-               rec_y;
+               rec_y               when instrument = X"00" else
+	       "100000000000";
+
+    busy   <=  enable     when instrument = X"01" else
+               tri_enable when instrument = X"02" else
+               enable;
     
     freq <= 5919	when key = X"6C" else
             6313	when key = X"6B" else
@@ -347,7 +353,7 @@ begin
                     end if;
                 end if;
 	    else
-                        rec_y <= (others => '0');				
+                        rec_y <= "100000000000";				
                     	rec_counter <= 0;
             end if;
         end if;
@@ -365,7 +371,7 @@ begin
                 end if;
 		saw_y <= conv_std_logic_vector((saw_m * saw_k),24);
 	    else
-                        saw_y <= (others => '0');				
+                        saw_y <= "100000000000000000000000";				
                     	saw_k <= 0;
             end if;
         end if;
@@ -374,10 +380,14 @@ begin
     tri_pro : process(clk)
     begin
         if rising_edge(clk) then
-            if enable = '1' then		
-		if tri_k = tri_n-1 then
+       	    if enable = '1' then
+		    tri_enable <= '1';
+		    tri_k <= tri_n / 2;
+	    end if;
+            if tri_enable = '1' then		
+		if tri_k = tri_n-1 then -- end of triangle
 		    tri_toggle <= '1';
-		elsif tri_k = 1 then
+		elsif tri_k = 1 then 	-- other end of triangle
 		    tri_toggle <= '0';
                 end if;
 		if tri_toggle = '0' then
@@ -385,11 +395,21 @@ begin
 		else
 		    tri_k  <= tri_k - 1;
 		end if;
-		tri_y <= conv_std_logic_vector((tri_m * tri_k),24);
+		if enable = '0' then  -- phase out 
+
+			if tri_y = "100000000000000000000000" then
+				tri_enable <= '0';
+			elsif tri_y > "100000000000000000000000" then
+				tri_y <= tri_y - '1';
+			else
+				tri_y <= tri_y + '1';
+			end if;
+
+		else
+			tri_y <= conv_std_logic_vector((tri_m * tri_k),24);
+		end if;
 	    else
-                    tri_y <= (others => '0');				
-                    tri_k <= 0;
-		    tri_toggle <= '0';
+                    tri_y <= "100000000000000000000000";
             end if;
         end if;
     end process;

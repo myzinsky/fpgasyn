@@ -61,7 +61,7 @@ architecture Behavioral of toplevel is
     
     -- SPI BUS
     signal addr              : std_logic_vector( 3 downto 0) := "1111"; -- an alle
-    signal data              : std_logic_vector(11 downto 0) := (others => '0');
+    signal data              : std_logic_vector(11 downto 0);
     signal send              : std_logic:='0';
     signal received          : std_logic;
     -- Midi
@@ -79,12 +79,13 @@ architecture Behavioral of toplevel is
     signal midi_word_buffer2 : std_logic_vector(7 downto 0) := (others => '0');
     signal midi_word_buffer3 : std_logic_vector(7 downto 0) := (others => '0');
     -- Mixer
-    signal mixer_out         : STD_LOGIC_VECTOR (11 downto 0) := (others => '0');
+    signal mixer_out         : STD_LOGIC_VECTOR (11 downto 0) := "100000000000";
     signal mixer_key 	     : std_logic_vector(7 downto 0 );
     signal mixer_instrument  : std_logic_vector(7 downto 0 );
     signal mixer_valid	     : std_logic;
     signal mixer_start	     : std_logic;
     signal mixer_stop        : std_logic;
+    signal mixer_panic       : std_logic;
     signal mixer_led         : std_logic_vector(7 downto 0);
 
 
@@ -104,6 +105,7 @@ architecture Behavioral of toplevel is
 	valid		: in	std_logic;
 	start		: in	std_logic;
 	stop    	: in	std_logic;
+	panic    	: in	std_logic;
 	led		: out   std_logic_vector(7 downto 0)
 
     );
@@ -165,6 +167,7 @@ begin
 	valid	 	=> mixer_valid,	
 	start	 	=> mixer_start,
 	stop     	=> mixer_stop,	
+	panic     	=> mixer_panic,	
 	led	 	=> mixer_led
 
     );
@@ -176,6 +179,8 @@ begin
 			mixer_start <= '0';
 			mixer_stop  <= '0';
 			mixer_key   <= (others => '0');
+
+		 		mixer_panic <= '0';
             -- A midi sequence is detected 
 	    if midi_in_3 = '1' and midi_in_2 = '0' and midi_receive = '0' then
                 midi_receive <= '1';
@@ -230,10 +235,10 @@ begin
 
 			mixer_instrument <= midi_word_buffer1;
 
-		--- elsif midi_word_buffer2 = X"B0" then -- status C (change instrument) channel 0
-		--- 	if midi_word_buffer1 =  X"7B" then
-		--- 		mixer_panic <= '1';
-		--- 	end if;
+		 elsif midi_word_buffer2 = X"B0" then -- Panic!
+		 	if midi_word_buffer1 =  X"7B" then
+		 		mixer_panic <= '1';
+		 	end if;
 		end if; 
             end if;
 
